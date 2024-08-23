@@ -9,7 +9,7 @@ const __filename = url.fileURLToPath(import.meta.url)
 // получаем папку в которой лежит файл index.js
 const __dirname = path.dirname(__filename);
 
-const timeZone = "UTC";
+const timeZone = "UTC+3";
 
 const port = 3000;
 
@@ -24,20 +24,24 @@ const loadBuses = async () => {
 const getNextDeparture = (firstDepartureTime, frequencyMinutes) => {
   const now = DateTime.now().setZone(timeZone);
   const [hours, minutes] = firstDepartureTime.split(':').map(Number);
-  let departure = DateTime.now().set({ hours, minutes, seconds: 0, milliseconds: 0 }).setZone(timeZone);
+  let departure = DateTime.now().set({ hours, minutes, seconds: 0 }).setZone(timeZone);
 
   if (now > departure) {
     departure = departure.plus({ minutes: frequencyMinutes })
   }
 
-  const endOfDay = DateTime.now().set({ hours: 23, minutes: 59, seconds: 59, milliseconds: 0 }).setZone(timeZone);
+  const endOfDay = DateTime.now().set({ hours: 23, minutes: 59, seconds: 59 }).setZone(timeZone);
 
   if (departure > endOfDay) {
     departure = departure.startOf('day').plus({ days: 1 }).set({ hours, minutes });
   }
 
   while (now > departure) {
-    departure = departure.plus({ minutes: frequencyMinutes })
+    departure = departure.plus({ minutes: frequencyMinutes });
+
+    if (departure > endOfDay) {
+      departure = departure.startOf('day').plus({ days: 1 }).set({ hours, minutes });
+    }
   }
 
   return departure;
@@ -48,22 +52,25 @@ const sendUpdatedData = async () => {
 
   const updatedBuses = buses.map((bus) => {
     const nextDeparture = getNextDeparture(bus.firstDepartureTime, bus.frequencyMinutes);
+
     return {
       ...bus, nextDeparture: {
-        data: "",
-        time: "",
+        data: nextDeparture.toFormat('yyyy-MM-dd'),
+        time: nextDeparture.toFormat('HH:mm:ss'),
       }
     }
   })
+
+  return updatedBuses;
 }
 
-sendUpdatedData()
+// sendUpdatedData()
 
 app.get('/next-departure', async (req, res) => {
   try {
-    const updatedBuses = sendUpdatedData();
-    console.log('updatedBuses: ', updatedBuses);
-    res.send('Hello world')
+    const updatedBuses = await sendUpdatedData();
+    res.json(updatedBuses);
+    // res.send('Hello world')
   } catch (error) {
 
     res.send('error' + error)
