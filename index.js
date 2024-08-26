@@ -15,6 +15,8 @@ const port = 3000;
 
 const app = express();
 
+app.use(express.static(path.join(__dirname, "public")));
+
 const loadBuses = async () => {
   // получаем данные из файла
   const data = await readFile(path.join(__dirname, 'buses.json'), 'utf-8');
